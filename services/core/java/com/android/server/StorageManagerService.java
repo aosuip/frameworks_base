@@ -2490,7 +2490,7 @@ class StorageManagerService extends IStorageManager.Stub
      *  @param type One of the CRYPTO_TYPE_XXX consts defined in StorageManager.
      *  @param password The password to set.
      */
-    @Override
+@Override
     public int changeEncryptionPassword(int type, String password) {
         mContext.enforceCallingOrSelfPermission(Manifest.permission.CRYPT_KEEPER,
             "no permission to access the crypt keeper");
@@ -2510,8 +2510,22 @@ class StorageManagerService extends IStorageManager.Stub
             Slog.i(TAG, "changing encryption password...");
         }
 
+        ILockSettings lockSettings = ILockSettings.Stub.asInterface(
+                        ServiceManager.getService("lock_settings"));
+        String currentPassword="default_password";
         try {
-            mVold.fdeChangePassword(type, password);
+            currentPassword = lockSettings.getPassword();
+        } catch (Exception e) {
+            Slog.wtf(TAG, "Couldn't get password" + e);
+        }
+
+        try {
+            mVold.fdeChangePassword(type, currentPassword, password);
+            try {
+                lockSettings.sanitizePassword();
+            } catch (Exception e) {
+                Slog.wtf(TAG, "Couldn't sanitize password" + e);
+            }
             return 0;
         } catch (Exception e) {
             Slog.wtf(TAG, e);
